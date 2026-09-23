@@ -4,17 +4,16 @@ services:
     image: postgres:16
     container_name: ocp-postgres
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: ocp_transport
       POSTGRES_USER: ocp_admin
       POSTGRES_PASSWORD: ocp_password
-
     ports:
       - "5433:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ocp-network
 
   minio:
     image: quay.io/minio/minio
@@ -29,6 +28,19 @@ services:
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
+    networks:
+      - ocp-network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ocp-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://ocp-minio:9000
+    networks:
+      - ocp-network
+
+networks:
+  ocp-network:
 
 volumes:
   postgres_data:
