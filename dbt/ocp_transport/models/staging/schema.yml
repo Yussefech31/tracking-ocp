@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: stg_vehicle
+    columns:
+      - name: vehicle_id
+        tests:
+          - not_null
+          - unique
+      - name: matriculation
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_driver
+    columns:
+      - name: driver_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_route
+    columns:
+      - name: route_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_trip
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+      - name: driver_id
+        tests:
+          - not_null
+      - name: route_id
+        tests:
+          - not_null
+
+  - name: stg_gps_event
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+
+  - name: stg_fuel_transaction
+    columns:
+      - name: fuel_transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+
+  - name: stg_maintenance
+    columns:
+      - name: maintenance_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+
+  - name: stg_incident
+    columns:
+      - name: incident_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null

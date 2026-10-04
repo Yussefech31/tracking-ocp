@@ -1,0 +1,13 @@
+ocp_transport:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "FMSAMMD-XE70136"
+      user: "YUSSEF31"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "SYSADMIN"
+      database: "OCP_TRANSPORTS"
+      warehouse: "OCP_TRANSPORT_WH"
+      schema: "STAGING"
+      threads: 4

@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: vehicle_kpis
+    columns:
+      - name: vehicle_id
+        tests:
+          - not_null
+          - unique
+      - name: completed_trips
+        tests:
+          - not_null
+      - name: total_distance_km
+        tests:
+          - not_null
+
+  - name: route_kpis
+    columns:
+      - name: route_id
+        tests:
+          - not_null
+          - unique
+
+  - name: driver_kpis
+    columns:
+      - name: driver_id
+        tests:
+          - not_null
+          - unique
+
+  - name: fleet_kpis
+    columns:
+      - name: total_vehicles
+        tests:
+          - not_null
+      - name: completed_trips
+        tests:
+          - not_null

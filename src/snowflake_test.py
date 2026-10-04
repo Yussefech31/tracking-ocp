@@ -22,6 +22,7 @@ cursor = connection.cursor()
 cursor.execute("USE WAREHOUSE OCP_TRANSPORTS_WH")
 cursor.execute("USE DATABASE OCP_TRANSPORTS")
 cursor.execute("USE SCHEMA RAW")
+cursor.execute("USE SCHEMA RAW")
 
 cursor.execute("""
 SELECT

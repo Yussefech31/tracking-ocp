@@ -1,0 +1,31 @@
+FROM apache/airflow:3.3.2
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y \
+        openjdk-17-jre-headless \
+        curl \
+        wget \
+        procps \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+USER airflow
+
+RUN pip install --no-cache-dir \
+    "apache-airflow-providers-fab==3.9.0" \
+    pyspark==3.5.3 \
+    pandas \
+    numpy \
+    faker \
+    psycopg2-binary \
+    sqlalchemy \
+    snowflake-connector-python \
+    dbt-core \
+    dbt-snowflake \
+    boto3 \
+    pyarrow \
+    s3fs
