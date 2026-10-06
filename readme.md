@@ -10,8 +10,8 @@ An enterprise-grade, end-to-end Data Engineering and Analytics platform designed
 flowchart TD
     subgraph Operational_Layer["Operational Layer"]
         PG[(PostgreSQL\ntransports schema)]
-        DataGen[Data Generator\nFaker & Python]
-        DataGen -->|Synthetic operational data| PG
+        DataGen[Data]
+        DataGen -->|Data ingestion| PG
     end
 
     subgraph Replication_Layer["Direct Ingestion / Sync"]
