@@ -1,0 +1,4 @@
+[sqlfluff]
+dialect = snowflake
+templater = jinja
+exclude_rules = L034, L031
