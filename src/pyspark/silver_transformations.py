@@ -19,12 +19,11 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 JDBC_DRIVER = BASE_DIR / "drivers" / "postgresql-42.7.12.jar"
 
 spark = (
-    SparkSession.builder
-    .appName("OCPTransportSilverTransformation")
+    SparkSession.builder.appName("OCPTransportSilverTransformation")
     .master("local[*]")
     .config(
         "spark.jars",
-        f"{JDBC_DRIVER.as_uri()},/opt/airflow/jars/hadoop-aws-3.3.4.jar,/opt/airflow/jars/aws-java-sdk-bundle-1.12.262.jar,/opt/airflow/jars/wildfly-openssl-1.0.7.Final.jar"
+        f"{JDBC_DRIVER.as_uri()},/opt/airflow/jars/hadoop-aws-3.3.4.jar,/opt/airflow/jars/aws-java-sdk-bundle-1.12.262.jar,/opt/airflow/jars/wildfly-openssl-1.0.7.Final.jar",
     )
     .config("spark.hadoop.fs.s3a.endpoint", "http://ocp-minio:9000")
     .config("spark.hadoop.fs.s3a.access.key", "minio_admin")
@@ -62,8 +61,7 @@ def transform_vehicle():
     df = read_bronze("vehicle")
 
     df = (
-        df
-        .withColumn("vehicle_id", trim(col("vehicle_id")))
+        df.withColumn("vehicle_id", trim(col("vehicle_id")))
         .withColumn("vehicle_type", trim(col("vehicle_type")))
         .withColumn("manufacturer", trim(col("manufacturer")))
         .withColumn("model", trim(col("model")))
@@ -99,8 +97,7 @@ def transform_driver():
     df = read_bronze("driver")
 
     df = (
-        df
-        .withColumn("driver_id", trim(col("driver_id")))
+        df.withColumn("driver_id", trim(col("driver_id")))
         .withColumn("first_name", trim(col("first_name")))
         .withColumn("last_name", trim(col("last_name")))
         .withColumn("license_type", trim(col("license_type")))
@@ -132,8 +129,7 @@ def transform_route():
     df = read_bronze("route")
 
     df = (
-        df
-        .withColumn("route_id", trim(col("route_id")))
+        df.withColumn("route_id", trim(col("route_id")))
         .withColumn("origin", trim(col("origin")))
         .withColumn("destination", trim(col("destination")))
         .withColumn("route_type", trim(col("route_type")))
@@ -163,8 +159,7 @@ def transform_trip():
     df = read_bronze("trip")
 
     df = (
-        df
-        .withColumn("trip_id", trim(col("trip_id")))
+        df.withColumn("trip_id", trim(col("trip_id")))
         .withColumn("vehicle_id", trim(col("vehicle_id")))
         .withColumn("driver_id", trim(col("driver_id")))
         .withColumn("route_id", trim(col("route_id")))
@@ -180,10 +175,11 @@ def transform_trip():
                 (
                     unix_timestamp(col("arrival_time"))
                     - unix_timestamp(col("departure_time"))
-                ) / 60,
+                )
+                / 60,
                 2,
             ),
-        )
+        ),
     )
 
     valid_condition = (
@@ -222,8 +218,7 @@ def transform_gps_event():
     df = read_bronze("gps_event")
 
     df = (
-        df
-        .withColumn("event_id", trim(col("event_id")))
+        df.withColumn("event_id", trim(col("event_id")))
         .withColumn("vehicle_id", trim(col("vehicle_id")))
         .dropDuplicates(["event_id"])
     )
@@ -239,10 +234,7 @@ def transform_gps_event():
         & col("longitude").between(-180, 180)
         & col("speed_kmh").isNotNull()
         & (col("speed_kmh") >= 0)
-        & (
-            col("fuel_level").isNull()
-            | col("fuel_level").between(0, 100)
-        )
+        & (col("fuel_level").isNull() | col("fuel_level").between(0, 100))
     )
 
     valid = df.filter(valid_condition)
@@ -258,8 +250,7 @@ def transform_fuel_transaction():
     df = read_bronze("fuel_transaction")
 
     df = (
-        df
-        .withColumn(
+        df.withColumn(
             "fuel_transaction_id",
             trim(col("fuel_transaction_id")),
         )
@@ -296,9 +287,7 @@ def transform_fuel_transaction():
     write_quarantine(invalid, "fuel_transaction")
 
     print(
-        f"fuel_transaction: "
-        f"{valid.count()} valid, "
-        f"{invalid.count()} quarantine"
+        f"fuel_transaction: " f"{valid.count()} valid, " f"{invalid.count()} quarantine"
     )
 
 
@@ -306,8 +295,7 @@ def transform_maintenance():
     df = read_bronze("maintenance")
 
     df = (
-        df
-        .withColumn("maintenance_id", trim(col("maintenance_id")))
+        df.withColumn("maintenance_id", trim(col("maintenance_id")))
         .withColumn("vehicle_id", trim(col("vehicle_id")))
         .withColumn("maintenance_type", trim(col("maintenance_type")))
         .dropDuplicates(["maintenance_id"])
@@ -332,19 +320,14 @@ def transform_maintenance():
     write_silver(valid, "maintenance")
     write_quarantine(invalid, "maintenance")
 
-    print(
-        f"maintenance: "
-        f"{valid.count()} valid, "
-        f"{invalid.count()} quarantine"
-    )
+    print(f"maintenance: " f"{valid.count()} valid, " f"{invalid.count()} quarantine")
 
 
 def transform_incident():
     df = read_bronze("incident")
 
     df = (
-        df
-        .withColumn("incident_id", trim(col("incident_id")))
+        df.withColumn("incident_id", trim(col("incident_id")))
         .withColumn("vehicle_id", trim(col("vehicle_id")))
         .withColumn("incident_type", trim(col("incident_type")))
         .withColumn("severity", trim(col("severity")))

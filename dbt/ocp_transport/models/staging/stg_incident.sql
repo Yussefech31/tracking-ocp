@@ -6,6 +6,7 @@ select
     severity,
     description
 from {{ source('raw', 'incident') }}
-where incident_id is not null
-  and vehicle_id is not null
-  and severity in ('Low', 'Medium', 'High', 'Critical')
+where
+    incident_id is not null
+    and vehicle_id is not null
+    and severity in ('Low', 'Medium', 'High', 'Critical')

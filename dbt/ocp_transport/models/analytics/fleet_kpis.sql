@@ -22,14 +22,14 @@ trip_kpis as (
         sum(
             case
                 when trip_status = 'Completed'
-                then distance_km
+                    then distance_km
                 else 0
             end
         ) as total_distance_km,
         sum(
             case
                 when trip_status = 'Completed'
-                then cargo_weight_tons
+                    then cargo_weight_tons
                 else 0
             end
         ) as total_cargo_tons
@@ -51,8 +51,7 @@ maintenance_kpis as (
 ),
 
 incident_kpis as (
-    select
-        count(incident_id) as total_incidents
+    select count(incident_id) as total_incidents
     from {{ ref('stg_incident') }}
 )
 
@@ -70,38 +69,38 @@ select
     i.total_incidents,
     case
         when t.total_distance_km > 0
-        then round(
-            (f.total_fuel_liters / t.total_distance_km) * 100,
-            2
-        )
+            then round(
+                (f.total_fuel_liters / t.total_distance_km) * 100,
+                2
+            )
         else 0
     end as fuel_liters_per_100km,
     case
         when t.total_distance_km > 0
-        then round(
-            f.total_fuel_cost / t.total_distance_km,
-            2
-        )
+            then round(
+                f.total_fuel_cost / t.total_distance_km,
+                2
+            )
         else 0
     end as fuel_cost_per_km,
     case
         when t.total_distance_km > 0
-        then round(
-            m.total_maintenance_cost / t.total_distance_km,
-            2
-        )
+            then round(
+                m.total_maintenance_cost / t.total_distance_km,
+                2
+            )
         else 0
     end as maintenance_cost_per_km,
     case
         when t.completed_trips > 0
-        then round(
-            i.total_incidents / t.completed_trips,
-            3
-        )
+            then round(
+                i.total_incidents / t.completed_trips,
+                3
+            )
         else 0
     end as incidents_per_trip
-from vehicle_kpis v
-cross join trip_kpis t
-cross join fuel_kpis f
-cross join maintenance_kpis m
-cross join incident_kpis i
+from vehicle_kpis as v
+cross join trip_kpis as t
+cross join fuel_kpis as f
+cross join maintenance_kpis as m
+cross join incident_kpis as i

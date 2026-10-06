@@ -60,6 +60,7 @@ flowchart TD
 | **Snowflake** | Cloud Data Warehouse hosting the raw staging and analytical reporting marts |
 | **dbt (Data Build Tool)** | Data modeling, transformations, testing, and schema documentation |
 | **Apache Airflow 3.x** | Workflow orchestration, task dependency management, and pipeline monitoring |
+| **Streamlit** | Interactive Python web dashboard visualizing Gold KPIs directly from Snowflake |
 | **Docker & Docker Compose** | Multi-container environment for Postgres, MinIO, and Airflow services |
 | **Python & Faker** | Data generation and ETL scripts |
 
@@ -175,6 +176,8 @@ vehicle route    driver   fleet
 │   └── postgresql-42.7.12.jar        # PostgreSQL JDBC driver for Spark
 │
 └── src/                              # Core Python & Spark code
+    ├── dashboard/                    # Streamlit Dashboard application
+    │   └── app.py                    # Main dashboard script
     ├── generate_data.py              # Synthetic data generator for PostgreSQL
     ├── load_postgres_to_snowflake.py # Direct Postgres-to-Snowflake sync
     ├── snowflake_test.py             # Snowflake connectivity test
@@ -226,3 +229,10 @@ python src/generate_data.py
 
 ### 5. Trigger the Airflow Pipeline
 Access the Airflow UI at `http://localhost:8083`, unpause the DAG `ocp_transport_batch_pipeline`, and trigger a run to execute the end-to-end ingestion, Spark medallion transformations, and dbt models.
+
+### 6. Run the Streamlit Dashboard
+Once the pipeline finishes and data lands in Snowflake, start the interactive dashboard to visualize the Gold KPIs:
+```bash
+python -m streamlit run src/dashboard/app.py
+```
+The dashboard will be available at `http://localhost:8501`.

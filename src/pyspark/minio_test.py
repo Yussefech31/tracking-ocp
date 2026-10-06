@@ -9,14 +9,13 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 JDBC_DRIVER = BASE_DIR / "drivers" / "postgresql-42.7.12.jar"
 
 spark = (
-    SparkSession.builder
-    .appName("MinIOConnectionTest")
+    SparkSession.builder.appName("MinIOConnectionTest")
     .master("local[*]")
     .config("spark.jars", JDBC_DRIVER.as_uri())
     .config(
         "spark.jars.packages",
         "org.apache.hadoop:hadoop-aws:3.3.4,"
-        "com.amazonaws:aws-java-sdk-bundle:1.12.262"
+        "com.amazonaws:aws-java-sdk-bundle:1.12.262",
     )
     .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:9000")
     .config("spark.hadoop.fs.s3a.access.key", "minio_admin")

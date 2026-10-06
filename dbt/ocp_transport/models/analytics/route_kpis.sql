@@ -26,24 +26,25 @@ select
     coalesce(t.avg_trip_duration_minutes, 0) as avg_trip_duration_minutes,
     case
         when coalesce(t.completed_trips, 0) > 0
-        then round(
-            t.avg_actual_distance_km - r.distance_km,
-            2
-        )
+            then round(
+                t.avg_actual_distance_km - r.distance_km,
+                2
+            )
         else 0
     end as route_deviation_km,
     case
-        when r.distance_km > 0
-             and coalesce(t.completed_trips, 0) > 0
-        then round(
-            (
-                (t.avg_actual_distance_km - r.distance_km)
-                / r.distance_km
-            ) * 100,
-            2
-        )
+        when
+            r.distance_km > 0
+            and coalesce(t.completed_trips, 0) > 0
+            then round(
+                (
+                    (t.avg_actual_distance_km - r.distance_km)
+                    / r.distance_km
+                ) * 100,
+                2
+            )
         else 0
     end as route_deviation_percent
-from {{ ref('stg_route') }} r
-left join trip_kpis t
+from {{ ref('stg_route') }} as r
+left join trip_kpis as t
     on r.route_id = t.route_id

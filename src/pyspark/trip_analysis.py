@@ -14,15 +14,11 @@ if not JDBC_DRIVER.exists():
     raise FileNotFoundError(f"JDBC driver not found: {JDBC_DRIVER}")
 
 spark = (
-    SparkSession.builder
-    .appName("OCPTransportVehicleAnalytics")
+    SparkSession.builder.appName("OCPTransportVehicleAnalytics")
     .master("local[*]")
     .config("spark.jars", JDBC_DRIVER.as_uri())
     .config("spark.ui.showConsoleProgress", "false")
-    .config(
-        "spark.hadoop.fs.file.impl",
-        "org.apache.hadoop.fs.LocalFileSystem"
-    )
+    .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem")
     .getOrCreate()
 )
 
@@ -71,59 +67,38 @@ incidents_df = spark.read.jdbc(
     properties=connection_properties,
 )
 
-completed_trips_df = trips_df.filter(
-    trips_df.trip_status == "Completed"
+completed_trips_df = trips_df.filter(trips_df.trip_status == "Completed")
+
+trip_metrics_df = completed_trips_df.groupBy("vehicle_id").agg(
+    count("trip_id").alias("completed_trips"),
+    round(sum("distance_km"), 2).alias("total_distance_km"),
+    round(sum("cargo_weight_tons"), 2).alias("total_cargo_tons"),
+    round(avg("distance_km"), 2).alias("avg_distance_km"),
 )
 
-trip_metrics_df = (
-    completed_trips_df
-    .groupBy("vehicle_id")
-    .agg(
-        count("trip_id").alias("completed_trips"),
-        round(sum("distance_km"), 2).alias("total_distance_km"),
-        round(sum("cargo_weight_tons"), 2).alias("total_cargo_tons"),
-        round(avg("distance_km"), 2).alias("avg_distance_km"),
-    )
+fuel_metrics_df = fuel_df.groupBy("vehicle_id").agg(
+    round(sum("liters"), 2).alias("total_fuel_liters"),
+    round(
+        sum(fuel_df.liters * fuel_df.price_per_liter),
+        2,
+    ).alias("total_fuel_cost"),
 )
 
-fuel_metrics_df = (
-    fuel_df
-    .groupBy("vehicle_id")
-    .agg(
-        round(sum("liters"), 2).alias("total_fuel_liters"),
-        round(
-            sum(
-                fuel_df.liters * fuel_df.price_per_liter
-            ),
-            2,
-        ).alias("total_fuel_cost"),
-    )
+maintenance_metrics_df = maintenance_df.groupBy("vehicle_id").agg(
+    count("maintenance_id").alias("maintenance_operations"),
+    round(sum("cost"), 2).alias("total_maintenance_cost"),
+    round(
+        sum("downtime_hours"),
+        2,
+    ).alias("total_downtime_hours"),
 )
 
-maintenance_metrics_df = (
-    maintenance_df
-    .groupBy("vehicle_id")
-    .agg(
-        count("maintenance_id").alias("maintenance_operations"),
-        round(sum("cost"), 2).alias("total_maintenance_cost"),
-        round(
-            sum("downtime_hours"),
-            2,
-        ).alias("total_downtime_hours"),
-    )
-)
-
-incident_metrics_df = (
-    incidents_df
-    .groupBy("vehicle_id")
-    .agg(
-        count("incident_id").alias("incident_count"),
-    )
+incident_metrics_df = incidents_df.groupBy("vehicle_id").agg(
+    count("incident_id").alias("incident_count"),
 )
 
 vehicle_kpi_df = (
-    vehicles_df
-    .select(
+    vehicles_df.select(
         "vehicle_id",
         "vehicle_type",
         "manufacturer",
@@ -169,38 +144,31 @@ vehicle_kpi_df = (
 )
 
 vehicle_kpi_df = (
-    vehicle_kpi_df
-    .withColumn(
+    vehicle_kpi_df.withColumn(
         "fuel_liters_per_100km",
         round(
-            (
-                vehicle_kpi_df.total_fuel_liters
-                / vehicle_kpi_df.total_distance_km
-            ) * 100,
+            (vehicle_kpi_df.total_fuel_liters / vehicle_kpi_df.total_distance_km) * 100,
             2,
         ),
     )
     .withColumn(
         "fuel_cost_per_km",
         round(
-            vehicle_kpi_df.total_fuel_cost
-            / vehicle_kpi_df.total_distance_km,
+            vehicle_kpi_df.total_fuel_cost / vehicle_kpi_df.total_distance_km,
             2,
         ),
     )
     .withColumn(
         "maintenance_cost_per_km",
         round(
-            vehicle_kpi_df.total_maintenance_cost
-            / vehicle_kpi_df.total_distance_km,
+            vehicle_kpi_df.total_maintenance_cost / vehicle_kpi_df.total_distance_km,
             2,
         ),
     )
     .withColumn(
         "incidents_per_trip",
         round(
-            vehicle_kpi_df.incident_count
-            / vehicle_kpi_df.completed_trips,
+            vehicle_kpi_df.incident_count / vehicle_kpi_df.completed_trips,
             2,
         ),
     )
@@ -309,9 +277,7 @@ from pathlib import Path
 
 LAKE_PATH = BASE_DIR / "data" / "lake" / "vehicle_kpis"
 
-vehicle_kpi_df.write.mode("overwrite").parquet(
-    str(LAKE_PATH)
-)
+vehicle_kpi_df.write.mode("overwrite").parquet(str(LAKE_PATH))
 
 print()
 print("========================================")
@@ -321,9 +287,7 @@ print()
 
 print(f"Path      : {LAKE_PATH}")
 
-parquet_df = spark.read.parquet(
-    str(LAKE_PATH)
-)
+parquet_df = spark.read.parquet(str(LAKE_PATH))
 
 print(f"Row count : {parquet_df.count()}")
 

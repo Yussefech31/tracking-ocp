@@ -16,12 +16,11 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 JDBC_DRIVER = BASE_DIR / "drivers" / "postgresql-42.7.12.jar"
 
 spark = (
-    SparkSession.builder
-    .appName("OCPTransportGoldVehicleKPIs")
+    SparkSession.builder.appName("OCPTransportGoldVehicleKPIs")
     .master("local[*]")
     .config(
         "spark.jars",
-        f"{JDBC_DRIVER.as_uri()},/opt/airflow/jars/hadoop-aws-3.3.4.jar,/opt/airflow/jars/aws-java-sdk-bundle-1.12.262.jar,/opt/airflow/jars/wildfly-openssl-1.0.7.Final.jar"
+        f"{JDBC_DRIVER.as_uri()},/opt/airflow/jars/hadoop-aws-3.3.4.jar,/opt/airflow/jars/aws-java-sdk-bundle-1.12.262.jar,/opt/airflow/jars/wildfly-openssl-1.0.7.Final.jar",
     )
     .config("spark.hadoop.fs.s3a.endpoint", "http://ocp-minio:9000")
     .config("spark.hadoop.fs.s3a.access.key", "minio_admin")
@@ -47,51 +46,31 @@ fuel = spark.read.parquet(f"{SILVER_PATH}/fuel_transaction")
 maintenance = spark.read.parquet(f"{SILVER_PATH}/maintenance")
 incident = spark.read.parquet(f"{SILVER_PATH}/incident")
 
-completed_trips = trip.filter(
-    col("trip_status") == "Completed"
+completed_trips = trip.filter(col("trip_status") == "Completed")
+
+trip_kpis = completed_trips.groupBy("vehicle_id").agg(
+    count("trip_id").alias("completed_trips"),
+    sum("distance_km").alias("total_distance_km"),
+    sum("cargo_weight_tons").alias("total_cargo_tons"),
+    avg("distance_km").alias("avg_distance_km"),
 )
 
-trip_kpis = (
-    completed_trips
-    .groupBy("vehicle_id")
-    .agg(
-        count("trip_id").alias("completed_trips"),
-        sum("distance_km").alias("total_distance_km"),
-        sum("cargo_weight_tons").alias("total_cargo_tons"),
-        avg("distance_km").alias("avg_distance_km")
-    )
+fuel_kpis = fuel.groupBy("vehicle_id").agg(
+    sum("liters").alias("total_fuel_liters"), sum("total_cost").alias("total_fuel_cost")
 )
 
-fuel_kpis = (
-    fuel
-    .groupBy("vehicle_id")
-    .agg(
-        sum("liters").alias("total_fuel_liters"),
-        sum("total_cost").alias("total_fuel_cost")
-    )
+maintenance_kpis = maintenance.groupBy("vehicle_id").agg(
+    count("maintenance_id").alias("maintenance_operations"),
+    sum("cost").alias("total_maintenance_cost"),
+    sum("downtime_hours").alias("total_downtime_hours"),
 )
 
-maintenance_kpis = (
-    maintenance
-    .groupBy("vehicle_id")
-    .agg(
-        count("maintenance_id").alias("maintenance_operations"),
-        sum("cost").alias("total_maintenance_cost"),
-        sum("downtime_hours").alias("total_downtime_hours")
-    )
-)
-
-incident_kpis = (
-    incident
-    .groupBy("vehicle_id")
-    .agg(
-        count("incident_id").alias("incident_count")
-    )
+incident_kpis = incident.groupBy("vehicle_id").agg(
+    count("incident_id").alias("incident_count")
 )
 
 vehicle_kpis = (
-    vehicle
-    .select(
+    vehicle.select(
         "vehicle_id",
         "vehicle_type",
         "manufacturer",
@@ -99,7 +78,7 @@ vehicle_kpis = (
         "capacity_tons",
         "fuel_type",
         "year",
-        "status"
+        "status",
     )
     .join(trip_kpis, "vehicle_id", "left")
     .join(fuel_kpis, "vehicle_id", "left")
@@ -117,56 +96,42 @@ numeric_columns = [
     "maintenance_operations",
     "total_maintenance_cost",
     "total_downtime_hours",
-    "incident_count"
+    "incident_count",
 ]
 
 for column_name in numeric_columns:
     vehicle_kpis = vehicle_kpis.withColumn(
-        column_name,
-        coalesce(col(column_name), lit(0))
+        column_name, coalesce(col(column_name), lit(0))
     )
 
 vehicle_kpis = (
-    vehicle_kpis
-    .withColumn(
+    vehicle_kpis.withColumn(
         "fuel_liters_per_100km",
         when(
             col("total_distance_km") > 0,
-            round(
-                col("total_fuel_liters") / col("total_distance_km") * 100,
-                2
-            )
-        ).otherwise(0)
+            round(col("total_fuel_liters") / col("total_distance_km") * 100, 2),
+        ).otherwise(0),
     )
     .withColumn(
         "fuel_cost_per_km",
         when(
             col("total_distance_km") > 0,
-            round(
-                col("total_fuel_cost") / col("total_distance_km"),
-                2
-            )
-        ).otherwise(0)
+            round(col("total_fuel_cost") / col("total_distance_km"), 2),
+        ).otherwise(0),
     )
     .withColumn(
         "maintenance_cost_per_km",
         when(
             col("total_distance_km") > 0,
-            round(
-                col("total_maintenance_cost") / col("total_distance_km"),
-                2
-            )
-        ).otherwise(0)
+            round(col("total_maintenance_cost") / col("total_distance_km"), 2),
+        ).otherwise(0),
     )
     .withColumn(
         "incidents_per_trip",
         when(
             col("completed_trips") > 0,
-            round(
-                col("incident_count") / col("completed_trips"),
-                3
-            )
-        ).otherwise(0)
+            round(col("incident_count") / col("completed_trips"), 3),
+        ).otherwise(0),
     )
 )
 
@@ -192,15 +157,11 @@ vehicle_kpis = vehicle_kpis.select(
     "fuel_liters_per_100km",
     "fuel_cost_per_km",
     "maintenance_cost_per_km",
-    "incidents_per_trip"
+    "incidents_per_trip",
 )
 
-vehicle_kpis.write.mode("overwrite").parquet(
-    f"{GOLD_PATH}/vehicle_kpis"
-)
+vehicle_kpis.write.mode("overwrite").parquet(f"{GOLD_PATH}/vehicle_kpis")
 
-vehicle_kpis.orderBy(
-    col("total_distance_km").desc()
-).show(10, truncate=False)
+vehicle_kpis.orderBy(col("total_distance_km").desc()).show(10, truncate=False)
 
 spark.stop()

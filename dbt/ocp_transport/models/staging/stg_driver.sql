@@ -7,5 +7,6 @@ select
     department,
     status
 from {{ source('raw', 'driver') }}
-where driver_id is not null
-  and experience_years >= 0
+where
+    driver_id is not null
+    and experience_years >= 0

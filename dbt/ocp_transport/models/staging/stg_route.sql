@@ -5,6 +5,7 @@ select
     distance_km,
     route_type
 from {{ source('raw', 'route') }}
-where route_id is not null
-  and distance_km > 0
-  and origin <> destination
+where
+    route_id is not null
+    and distance_km > 0
+    and origin <> destination

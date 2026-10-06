@@ -58,46 +58,46 @@ select
     coalesce(i.incident_count, 0) as incident_count,
     case
         when coalesce(t.total_distance_km, 0) > 0
-        then round(
-            coalesce(f.total_fuel_liters, 0)
-            / t.total_distance_km * 100,
-            2
-        )
+            then round(
+                coalesce(f.total_fuel_liters, 0)
+                / t.total_distance_km * 100,
+                2
+            )
         else 0
     end as fuel_liters_per_100km,
     case
         when coalesce(t.total_distance_km, 0) > 0
-        then round(
-            coalesce(f.total_fuel_cost, 0)
-            / t.total_distance_km,
-            2
-        )
+            then round(
+                coalesce(f.total_fuel_cost, 0)
+                / t.total_distance_km,
+                2
+            )
         else 0
     end as fuel_cost_per_km,
     case
         when coalesce(t.total_distance_km, 0) > 0
-        then round(
-            coalesce(m.total_maintenance_cost, 0)
-            / t.total_distance_km,
-            2
-        )
+            then round(
+                coalesce(m.total_maintenance_cost, 0)
+                / t.total_distance_km,
+                2
+            )
         else 0
     end as maintenance_cost_per_km,
     case
         when coalesce(t.completed_trips, 0) > 0
-        then round(
-            coalesce(i.incident_count, 0)
-            / t.completed_trips,
-            3
-        )
+            then round(
+                coalesce(i.incident_count, 0)
+                / t.completed_trips,
+                3
+            )
         else 0
     end as incidents_per_trip
-from {{ ref('stg_vehicle') }} v
-left join trip_kpis t
+from {{ ref('stg_vehicle') }} as v
+left join trip_kpis as t
     on v.vehicle_id = t.vehicle_id
-left join fuel_kpis f
+left join fuel_kpis as f
     on v.vehicle_id = f.vehicle_id
-left join maintenance_kpis m
+left join maintenance_kpis as m
     on v.vehicle_id = m.vehicle_id
-left join incident_kpis i
+left join incident_kpis as i
     on v.vehicle_id = i.vehicle_id
