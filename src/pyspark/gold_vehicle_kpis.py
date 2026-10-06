@@ -19,11 +19,9 @@ spark = (
     SparkSession.builder
     .appName("OCPTransportGoldVehicleKPIs")
     .master("local[*]")
-    .config("spark.jars", JDBC_DRIVER.as_uri())
     .config(
-        "spark.jars.packages",
-        "org.apache.hadoop:hadoop-aws:3.3.4,"
-        "com.amazonaws:aws-java-sdk-bundle:1.12.262"
+        "spark.jars",
+        f"{JDBC_DRIVER.as_uri()},/opt/airflow/jars/hadoop-aws-3.3.4.jar,/opt/airflow/jars/aws-java-sdk-bundle-1.12.262.jar,/opt/airflow/jars/wildfly-openssl-1.0.7.Final.jar"
     )
     .config("spark.hadoop.fs.s3a.endpoint", "http://ocp-minio:9000")
     .config("spark.hadoop.fs.s3a.access.key", "minio_admin")
