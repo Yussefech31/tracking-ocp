@@ -19,7 +19,7 @@ spark = (
         "org.apache.hadoop:hadoop-aws:3.3.4,"
         "com.amazonaws:aws-java-sdk-bundle:1.12.262"
     )
-    .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:9000")
+    .config("spark.hadoop.fs.s3a.endpoint", "http://ocp-minio:9000")
     .config("spark.hadoop.fs.s3a.access.key", "minio_admin")
     .config("spark.hadoop.fs.s3a.secret.key", "minio_password123")
     .config("spark.hadoop.fs.s3a.path.style.access", "true")

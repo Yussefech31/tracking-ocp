@@ -29,3 +29,10 @@ RUN pip install --no-cache-dir \
     boto3 \
     pyarrow \
     s3fs
+
+RUN mkdir -p /opt/airflow/jars \
+    && wget -q https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -O /opt/airflow/jars/hadoop-aws-3.3.4.jar \
+    && wget -q https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar -O /opt/airflow/jars/aws-java-sdk-bundle-1.12.262.jar \
+    && wget -q https://repo1.maven.org/maven2/org/wildfly/openssl/wildfly-openssl/1.0.7.Final/wildfly-openssl-1.0.7.Final.jar -O /opt/airflow/jars/wildfly-openssl-1.0.7.Final.jar
+
+USER airflow

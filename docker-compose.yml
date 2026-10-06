@@ -50,15 +50,23 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://ocp_admin:ocp_password@ocp-postgres:5432/ocp_transport
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY}
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
       DBT_PROFILES_DIR: /opt/airflow/project/dbt
       SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
       SNOWFLAKE_ACCOUNT: FMSAMMD-XE70136
       SNOWFLAKE_USER: YUSSEF31
       SNOWFLAKE_DATABASE: OCP_TRANSPORTS
-      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORT_WH
+      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORTS_WH
+      POSTGRES_HOST: ocp-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ocp_transport
+      POSTGRES_USER: ocp_admin
+      POSTGRES_PASSWORD: ocp_password
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -88,22 +96,26 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
-      airflow-scheduler:
-        condition: service_started
-      airflow-dag-processor:
-        condition: service_started
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://ocp_admin:ocp_password@ocp-postgres:5432/ocp_transport
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY}
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
       DBT_PROFILES_DIR: /opt/airflow/project/dbt
       SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
       SNOWFLAKE_ACCOUNT: FMSAMMD-XE70136
       SNOWFLAKE_USER: YUSSEF31
       SNOWFLAKE_DATABASE: OCP_TRANSPORTS
       SNOWFLAKE_WAREHOUSE: OCP_TRANSPORT_WH
+      POSTGRES_HOST: ocp-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ocp_transport
+      POSTGRES_USER: ocp_admin
+      POSTGRES_PASSWORD: ocp_password
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -125,18 +137,28 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      airflow-apiserver:
+        condition: service_started
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://ocp_admin:ocp_password@ocp-postgres:5432/ocp_transport
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY}
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
       DBT_PROFILES_DIR: /opt/airflow/project/dbt
       SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
       SNOWFLAKE_ACCOUNT: FMSAMMD-XE70136
       SNOWFLAKE_USER: YUSSEF31
       SNOWFLAKE_DATABASE: OCP_TRANSPORTS
-      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORT_WH
+      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORTS_WH
+      POSTGRES_HOST: ocp-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ocp_transport
+      POSTGRES_USER: ocp_admin
+      POSTGRES_PASSWORD: ocp_password
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -156,18 +178,28 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      airflow-apiserver:
+        condition: service_started
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://ocp_admin:ocp_password@ocp-postgres:5432/ocp_transport
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY}
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
       DBT_PROFILES_DIR: /opt/airflow/project/dbt
       SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
       SNOWFLAKE_ACCOUNT: FMSAMMD-XE70136
       SNOWFLAKE_USER: YUSSEF31
       SNOWFLAKE_DATABASE: OCP_TRANSPORTS
-      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORT_WH
+      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORTS_WH
+      POSTGRES_HOST: ocp-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ocp_transport
+      POSTGRES_USER: ocp_admin
+      POSTGRES_PASSWORD: ocp_password
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -187,17 +219,27 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      airflow-apiserver:
+        condition: service_started
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://ocp_admin:ocp_password@ocp-postgres:5432/ocp_transport
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY}
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
       DBT_PROFILES_DIR: /opt/airflow/project/dbt
       SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
       SNOWFLAKE_ACCOUNT: FMSAMMD-XE70136
       SNOWFLAKE_USER: YUSSEF31
       SNOWFLAKE_DATABASE: OCP_TRANSPORTS
-      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORT_WH
+      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORTS_WH
+      POSTGRES_HOST: ocp-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ocp_transport
+      POSTGRES_USER: ocp_admin
+      POSTGRES_PASSWORD: ocp_password
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs

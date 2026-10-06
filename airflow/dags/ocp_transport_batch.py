@@ -33,7 +33,7 @@ with DAG(
 
     silver_transformation = BashOperator(
         task_id="silver_transformation",
-        bash_command="python /opt/airflow/project/src/pyspark/silver_transformation.py",
+        bash_command="python /opt/airflow/project/src/pyspark/silver_transformations.py",
     )
 
     gold_vehicle_kpis = BashOperator(
