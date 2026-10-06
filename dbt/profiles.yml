@@ -8,6 +8,6 @@ ocp_transport:
       password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
       role: "SYSADMIN"
       database: "OCP_TRANSPORTS"
-      warehouse: "OCP_TRANSPORT_WH"
+      warehouse: "OCP_TRANSPORTS_WH"
       schema: "STAGING"
       threads: 4
