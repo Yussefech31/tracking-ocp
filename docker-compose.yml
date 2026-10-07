@@ -30,7 +30,6 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - ocp-network
-
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: ocp-cloudflared
@@ -38,6 +37,31 @@ services:
     command: tunnel --no-autoupdate --url http://ocp-minio:9000
     networks:
       - ocp-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: ocp-kafka
+    restart: unless-stopped
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://ocp-kafka:9092,PLAINTEXT_HOST://localhost:9094'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@ocp-kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9094'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    networks:
+      - ocp-network
+
 
   airflow-init:
     build:
@@ -110,7 +134,7 @@ services:
       SNOWFLAKE_ACCOUNT: FMSAMMD-XE70136
       SNOWFLAKE_USER: YUSSEF31
       SNOWFLAKE_DATABASE: OCP_TRANSPORTS
-      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORT_WH
+      SNOWFLAKE_WAREHOUSE: OCP_TRANSPORTS_WH
       POSTGRES_HOST: ocp-postgres
       POSTGRES_PORT: "5432"
       POSTGRES_DB: ocp_transport

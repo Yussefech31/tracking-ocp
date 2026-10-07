@@ -55,8 +55,9 @@ flowchart TD
 | Technology | Role |
 | :--- | :--- |
 | **PostgreSQL 16** | Operational OLTP database storing transactions, vehicles, drivers, and trips |
-| **MinIO** | S3-compatible Object Storage powering the Lakehouse (Bronze / Silver / Gold) |
-| **Apache Spark (PySpark 3.5)** | Distributed data processing, validation, and KPI transformations |
+| **Apache Kafka** | Real-time event streaming for vehicle telemetry and operational alerts |
+| **MinIO** | S3-compatible Object Storage powering the Lakehouse (Bronze / Silver / Gold / Streaming) |
+| **Apache Spark (PySpark 3.5)** | Distributed batch processing, data quality, and Structured Streaming for real-time alerts |
 | **Snowflake** | Cloud Data Warehouse hosting the raw staging and analytical reporting marts |
 | **dbt (Data Build Tool)** | Data modeling, transformations, testing, and schema documentation |
 | **Apache Airflow 3.x** | Workflow orchestration, task dependency management, and pipeline monitoring |
@@ -87,6 +88,12 @@ The Lakehouse layer follows the **Medallion Architecture** pattern using MinIO S
   - **`driver_kpis`**: Completed trips, total distance driven, average cargo carried, safety incident counts.
   - **`fleet_kpis`**: High-level fleet-wide health, operational utilization, total fuel expenses, incident rates.
 
+### 4. ⚡ Streaming Layer (`s3a://ocp-data/streaming/`)
+- Real-time ingestion of vehicle telemetry via **Kafka** (`vehicle_telemetry` topic).
+- **Spark Structured Streaming Engine** (`spark_alert_engine.py`) processes telemetry to detect:
+  - Overspeeding (`>100 km/h`), High Engine Temperatures (`>100 C`), Low Fuel Levels (`<15%`), and Unexpected Stops.
+- Alerts are persisted as Parquet files to S3 and pushed back to Kafka (`vehicle_alerts` topic).
+
 ---
 
 ## ❄️ Analytics Engineering with dbt & Snowflake
@@ -108,6 +115,7 @@ The dbt project (`dbt/ocp_transport/`) models data within Snowflake across two l
 - `route_kpis.sql`: Route deviations, efficiency, cargo throughput.
 - `driver_kpis.sql`: Driver performance, completion rates, incident records.
 - `fleet_kpis.sql`: Executive-level operational metrics and fleet KPIs.
+- `realtime_fleet_kpis.sql`: Streaming aggregation of real-time telemetry for active vehicle states, speeds, and anomaly rates.
 
 ---
 
@@ -190,6 +198,8 @@ vehicle route    driver   fleet
         ├── gold_fleet_kpis.py        # Fleet KPIs Gold mart
         ├── trip_analysis.py          # Ad-hoc PySpark trip analysis
         └── minio_test.py             # MinIO connectivity test
+    ├── streaming/                    # Spark Structured Streaming
+        └── spark_alert_engine.py     # Real-time Kafka telemetry to S3 alerts
 ```
 
 ---

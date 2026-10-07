@@ -13,3 +13,7 @@ sources:
       - name: fuel_transaction
       - name: maintenance
       - name: incident
+      - name: stream_telemetry
+      - name: stream_alerts
+      - name: stream_fleet_kpis
+      - name: stream_vehicle_kpis

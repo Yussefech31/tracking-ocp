@@ -97,8 +97,7 @@ div[data-testid="stTabs"] button[aria-selected="true"] { color: #00D4AA; }
 # --------------------------------------------------------------------------- #
 # Data access
 # --------------------------------------------------------------------------- #
-@st.cache_resource(show_spinner=False)
-def get_connection():
+def new_connection():
     return snowflake.connector.connect(
         account=os.getenv("SNOWFLAKE_ACCOUNT", "FMSAMMD-XE70136"),
         user=os.getenv("SNOWFLAKE_USER", "YUSSEF31"),
@@ -107,25 +106,53 @@ def get_connection():
         warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "OCP_TRANSPORTS_WH"),
         database=os.getenv("SNOWFLAKE_DATABASE", "OCP_TRANSPORTS"),
         schema=SCHEMA,
+        client_session_keep_alive=True,
+        login_timeout=30,
+        network_timeout=60,
     )
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+def run_query(sql: str) -> pd.DataFrame:
+    last_error = None
+    for _ in range(2):
+        conn = None
+        try:
+            conn = new_connection()
+            cur = conn.cursor()
+            try:
+                cur.execute(sql)
+                return cur.fetch_pandas_all()
+            finally:
+                cur.close()
+        except Exception as exc:
+            last_error = exc
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    raise last_error
+
+
+@st.cache_data(ttl=300, show_spinner=False)
 def load_table(name: str) -> pd.DataFrame:
-    cur = get_connection().cursor()
-    try:
-        cur.execute(f"SELECT * FROM {SCHEMA}.{name}")
-        df = cur.fetch_pandas_all()
-    finally:
-        cur.close()
+    df = run_query(f"SELECT * FROM {SCHEMA}.{name}")
+
     df.columns = [c.lower() for c in df.columns]
-    # Snowflake NUMBER -> Decimal/object; coerce numerics
     for c in df.columns:
         if df[c].dtype == object:
             converted = pd.to_numeric(df[c], errors="coerce")
             if converted.notna().sum() == df[c].notna().sum() and df[c].notna().any():
                 df[c] = converted
     return df
+
+
+def load_optional(name: str) -> pd.DataFrame:
+    try:
+        return load_table(name)
+    except Exception:
+        return pd.DataFrame()
 
 
 # --------------------------------------------------------------------------- #
@@ -187,6 +214,11 @@ except Exception as e:  # noqa: BLE001
     )
     st.stop()
 
+with st.spinner("Loading real-time streaming layer…"):
+    alerts = load_optional("VEHICLE_ALERTS")
+    live = load_optional("REALTIME_VEHICLE_STATUS")
+    rt_fleet = load_optional("REALTIME_FLEET_KPIS")
+
 # --------------------------------------------------------------------------- #
 # Sidebar filters
 # --------------------------------------------------------------------------- #
@@ -227,8 +259,8 @@ st.markdown(
 
 f = fleet.iloc[0] if not fleet.empty else pd.Series(dtype=float)
 
-tab_overview, tab_vehicles, tab_routes, tab_drivers = st.tabs(
-    ["📊 Overview", "🚚 Vehicles", "🗺️ Routes", "👷 Drivers"]
+tab_overview, tab_vehicles, tab_routes, tab_drivers, tab_alerts, tab_live = st.tabs(
+    ["📊 Overview", "🚚 Vehicles", "🗺️ Routes", "👷 Drivers", "🚨 Alerts", "📡 Live Fleet"]
 )
 
 # =========================================================================== #
@@ -481,4 +513,148 @@ with tab_drivers:
         },
     )
 
-st.caption("OCP Transport Data Platform · Postgres → MinIO (Bronze/Silver/Gold) → Snowflake → dbt → Streamlit")
+SEVERITY_COLORS = {"CRITICAL": "#FF6B8B", "WARNING": "#FFB547"}
+STATUS_COLORS = {"NORMAL": "#00D4AA", "OVERSPEED": "#FF6B8B", "OVERHEATING": "#FFB547", "STOPPED": "#A78BFA"}
+STREAM_HINT = (
+    "No streaming data in Snowflake yet. Run the `ocp_transport_streaming_persistence` DAG "
+    "(Kafka → Spark → MinIO → Snowflake RAW → dbt) to populate this tab."
+)
+
+with tab_alerts:
+    if alerts.empty:
+        st.info(STREAM_HINT)
+    else:
+        alerts["alert_time"] = pd.to_datetime(alerts["alert_time"])
+        a_types = sorted(alerts["alert_type"].dropna().unique())
+        a_sev = sorted(alerts["severity"].dropna().unique())
+        fc1, fc2 = st.columns(2)
+        sel_atypes = fc1.multiselect("Alert type", a_types, default=a_types, key="alert_types")
+        sel_asev = fc2.multiselect("Severity", a_sev, default=a_sev, key="alert_sev")
+        af = alerts[alerts["alert_type"].isin(sel_atypes) & alerts["severity"].isin(sel_asev)]
+
+        c = st.columns(5)
+        kpi(c[0], "Total Alerts", fmt(len(af)), f"{af['vehicle_id'].nunique()} vehicles")
+        kpi(c[1], "Critical", fmt((af["severity"] == "CRITICAL").sum()),
+            f"{(af['severity'] == 'CRITICAL').mean() * 100 if len(af) else 0:.0f}% of alerts")
+        kpi(c[2], "Overspeed", fmt((af["alert_type"] == "OVERSPEED").sum()), "> 100 km/h")
+        kpi(c[3], "Engine Overheat", fmt((af["alert_type"] == "HIGH_ENGINE_TEMPERATURE").sum()), "> 100 °C")
+        last = af["alert_time"].max()
+        kpi(c[4], "Last Alert", last.strftime("%H:%M:%S") if pd.notna(last) else "—",
+            last.strftime("%Y-%m-%d") if pd.notna(last) else "")
+
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            section("Alerts by type & severity")
+            g = af.groupby(["alert_type", "severity"]).size().reset_index(name="alerts")
+            fig = px.bar(g, x="alert_type", y="alerts", color="severity", barmode="stack",
+                         color_discrete_map=SEVERITY_COLORS, labels={"alert_type": ""})
+            st.plotly_chart(style(fig), width="stretch")
+        with col2:
+            section("Alert timeline")
+            t = af.assign(minute=af["alert_time"].dt.floor("min")).groupby(
+                ["minute", "alert_type"]).size().reset_index(name="alerts")
+            fig = px.bar(t, x="minute", y="alerts", color="alert_type", labels={"minute": ""})
+            st.plotly_chart(style(fig), width="stretch")
+
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            section("Alert locations")
+            fig = px.scatter_map(
+                af, lat="latitude", lon="longitude", color="severity", size="metric_value",
+                size_max=16, hover_name="vehicle_id", hover_data=["alert_type", "metric_value", "alert_time"],
+                color_discrete_map=SEVERITY_COLORS, zoom=5.2, map_style="carto-darkmatter",
+            )
+            st.plotly_chart(style(fig, 420), width="stretch")
+        with col2:
+            section("Most alerted vehicles")
+            top = af.groupby("vehicle_id", as_index=False).agg(
+                alerts=("alert_id", "count"), critical=("severity", lambda s: (s == "CRITICAL").sum()))
+            top = top.nlargest(10, "alerts").sort_values("alerts")
+            fig = px.bar(top, x="alerts", y="vehicle_id", orientation="h", color="critical",
+                         color_continuous_scale="Reds", labels={"vehicle_id": "", "critical": "Critical"})
+            st.plotly_chart(style(fig, 420), width="stretch")
+
+        section("Alert feed")
+        st.dataframe(
+            af[["alert_time", "severity", "alert_type", "vehicle_id", "vehicle_type", "metric_value",
+                "threshold", "threshold_breach", "description"]].sort_values("alert_time", ascending=False),
+            width="stretch", hide_index=True,
+            column_config={
+                "alert_time": st.column_config.DatetimeColumn("Time", format="YYYY-MM-DD HH:mm:ss"),
+                "threshold_breach": st.column_config.NumberColumn("Breach", format="+%.2f"),
+            },
+        )
+
+with tab_live:
+    if live.empty:
+        st.info(STREAM_HINT)
+    else:
+        live["last_seen_at"] = pd.to_datetime(live["last_seen_at"])
+        for flag in ["is_overspeed", "is_overheating", "is_low_fuel", "is_stopped"]:
+            live[flag] = live[flag].astype(bool)
+
+        c = st.columns(5)
+        kpi(c[0], "Vehicles Streaming", fmt(len(live)), f"last seen {live['last_seen_at'].max():%H:%M:%S}")
+        kpi(c[1], "Normal", fmt((live["operational_status"] == "NORMAL").sum()), "current status")
+        kpi(c[2], "Overspeed Flags", fmt(live["overspeed_flags"].sum()), "all telemetry")
+        kpi(c[3], "Overheating Flags", fmt(live["overheating_flags"].sum()), "all telemetry")
+        kpi(c[4], "Stopped / Low Fuel", f"{int(live['stopped_flags'].sum())} / {int(live['low_fuel_flags'].sum())}",
+            "all telemetry")
+
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            section("Live fleet positions")
+            fig = px.scatter_map(
+                live, lat="latitude", lon="longitude", color="operational_status",
+                hover_name="vehicle_id",
+                hover_data=["speed_kmh", "engine_temperature", "fuel_level", "total_alerts"],
+                color_discrete_map=STATUS_COLORS, zoom=5.2, map_style="carto-darkmatter",
+            )
+            fig.update_traces(marker=dict(size=12))
+            st.plotly_chart(style(fig, 440), width="stretch")
+        with col2:
+            section("Telemetry flags raised")
+            flags = pd.DataFrame({
+                "flag": ["Overspeed", "Overheating", "Low fuel", "Stopped"],
+                "count": [live["overspeed_flags"].sum(), live["overheating_flags"].sum(),
+                          live["low_fuel_flags"].sum(), live["stopped_flags"].sum()],
+            })
+            fig = px.pie(flags, names="flag", values="count", hole=0.6,
+                         color_discrete_sequence=["#FF6B8B", "#FFB547", "#38BDF8", "#A78BFA"])
+            st.plotly_chart(style(fig, 440), width="stretch")
+
+        if not rt_fleet.empty:
+            section("Real-time fleet KPIs (1-minute windows)")
+            rt = rt_fleet.assign(window_start=pd.to_datetime(rt_fleet["window_start"])).sort_values("window_start")
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.line(rt, x="window_start", y=["avg_speed_kmh", "max_speed_kmh"], markers=True,
+                              labels={"window_start": "", "value": "km/h", "variable": ""})
+                st.plotly_chart(style(fig, 320), width="stretch")
+            with col2:
+                fig = px.bar(rt, x="window_start",
+                             y=["overspeed_events", "temperature_anomalies", "low_fuel_events", "stopped_vehicles"],
+                             labels={"window_start": "", "value": "flags", "variable": ""})
+                st.plotly_chart(style(fig, 320), width="stretch")
+
+        section("Vehicle status board")
+        st.dataframe(
+            live[["vehicle_id", "vehicle_type", "operational_status", "last_seen_at", "speed_kmh",
+                  "engine_temperature", "fuel_level", "is_overspeed", "is_overheating", "is_low_fuel",
+                  "is_stopped", "total_alerts", "critical_alerts"]]
+            .sort_values(["critical_alerts", "total_alerts"], ascending=False),
+            width="stretch", hide_index=True,
+            column_config={
+                "last_seen_at": st.column_config.DatetimeColumn("Last seen", format="HH:mm:ss"),
+                "fuel_level": st.column_config.ProgressColumn("Fuel %", format="%.0f", min_value=0, max_value=100),
+                "is_overspeed": st.column_config.CheckboxColumn("Overspeed"),
+                "is_overheating": st.column_config.CheckboxColumn("Overheat"),
+                "is_low_fuel": st.column_config.CheckboxColumn("Low fuel"),
+                "is_stopped": st.column_config.CheckboxColumn("Stopped"),
+            },
+        )
+
+st.caption(
+    "OCP Transport Data Platform · Postgres → MinIO (Bronze/Silver/Gold) → Snowflake → dbt → Streamlit · "
+    "Kafka → Spark Structured Streaming → MinIO → Snowflake RAW.STREAM_* → dbt"
+)

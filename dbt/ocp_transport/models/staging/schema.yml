@@ -11,6 +11,16 @@ models:
         tests:
           - not_null
           - unique
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Active', 'Maintenance', 'Inactive']
+      - name: fuel_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Diesel', 'Electric', 'Hybrid']
 
   - name: stg_driver
     columns:
@@ -18,6 +28,11 @@ models:
         tests:
           - not_null
           - unique
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Active', 'Inactive', 'Suspended']
 
   - name: stg_route
     columns:
@@ -35,12 +50,26 @@ models:
       - name: vehicle_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
       - name: driver_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_driver')
+              field: driver_id
       - name: route_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_route')
+              field: route_id
+      - name: trip_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Planned', 'In Progress', 'Completed', 'Cancelled']
 
   - name: stg_gps_event
     columns:
@@ -51,6 +80,9 @@ models:
       - name: vehicle_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
 
   - name: stg_fuel_transaction
     columns:
@@ -61,6 +93,9 @@ models:
       - name: vehicle_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
 
   - name: stg_maintenance
     columns:
@@ -71,6 +106,9 @@ models:
       - name: vehicle_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
 
   - name: stg_incident
     columns:
@@ -81,3 +119,11 @@ models:
       - name: vehicle_id
         tests:
           - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+      - name: severity
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Low', 'Medium', 'High', 'Critical']

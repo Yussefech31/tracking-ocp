@@ -7,3 +7,4 @@ pyspark
 streamlit
 plotly
 snowflake-connector-python[pandas]
+kafka-python-ng
