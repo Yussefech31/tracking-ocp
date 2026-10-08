@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: raw
+    database: OCP_TRANSPORTS
+    schema: RAW
+    tables:
+      - name: vehicle
+      - name: driver
+      - name: route
+      - name: trip
+      - name: gps_event
+      - name: fuel_transaction
+      - name: maintenance
+      - name: incident
+      - name: stream_telemetry
+      - name: stream_alerts
+      - name: stream_fleet_kpis
+      - name: stream_vehicle_kpis

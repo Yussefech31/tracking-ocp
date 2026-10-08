@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  - name: vehicle_kpis
+    columns:
+      - name: vehicle_id
+        tests:
+          - not_null
+          - unique
+      - name: completed_trips
+        tests:
+          - not_null
+      - name: total_distance_km
+        tests:
+          - not_null
+      - name: total_fuel_liters
+        tests:
+          - not_null
+
+  - name: route_kpis
+    columns:
+      - name: route_id
+        tests:
+          - not_null
+          - unique
+      - name: completed_trips
+        tests:
+          - not_null
+
+  - name: driver_kpis
+    columns:
+      - name: driver_id
+        tests:
+          - not_null
+          - unique
+      - name: completed_trips
+        tests:
+          - not_null
+
+  - name: fleet_kpis
+    columns:
+      - name: total_vehicles
+        tests:
+          - not_null
+      - name: active_vehicles
+        tests:
+          - not_null
+      - name: total_trips
+        tests:
+          - not_null
+      - name: completed_trips
+        tests:
+          - not_null
+
+  - name: vehicle_alerts
+    columns:
+      - name: alert_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+              config:
+                severity: warn
+      - name: alert_time
+        tests:
+          - not_null
+      - name: alert_type
+        tests:
+          - accepted_values:
+              values: ['OVERSPEED', 'HIGH_ENGINE_TEMPERATURE', 'LOW_FUEL', 'UNEXPECTED_STOP']
+      - name: severity
+        tests:
+          - accepted_values:
+              values: ['WARNING', 'CRITICAL']
+
+  - name: realtime_vehicle_status
+    columns:
+      - name: vehicle_id
+        tests:
+          - not_null
+          - unique
+      - name: operational_status
+        tests:
+          - accepted_values:
+              values: ['NORMAL', 'OVERSPEED', 'OVERHEATING', 'STOPPED']
+      - name: total_alerts
+        tests:
+          - not_null
+
+  - name: realtime_fleet_kpis
+    columns:
+      - name: window_start
+        tests:
+          - not_null
+          - unique
+      - name: total_events
+        tests:
+          - not_null

@@ -33,12 +33,15 @@ env/
 
 # Logs and databases
 *.log
-*.sql
 *.sqlite3
 
 # Data folders
 data/
-MinIO/
+/MinIO/
+.ocp/
+dbt/logs/
+dbt/**/target/
+dbt/**/logs/
 
 # OS files
 .DS_Store
@@ -72,3 +75,5 @@ Thumbs.db
 
 # Logs
 *.log
+
+.mc-config/

@@ -1,0 +1,129 @@
+version: 2
+
+models:
+  - name: stg_vehicle
+    columns:
+      - name: vehicle_id
+        tests:
+          - not_null
+          - unique
+      - name: matriculation
+        tests:
+          - not_null
+          - unique
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Active', 'Maintenance', 'Inactive']
+      - name: fuel_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Diesel', 'Electric', 'Hybrid']
+
+  - name: stg_driver
+    columns:
+      - name: driver_id
+        tests:
+          - not_null
+          - unique
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Active', 'Inactive', 'Suspended']
+
+  - name: stg_route
+    columns:
+      - name: route_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_trip
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+      - name: driver_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_driver')
+              field: driver_id
+      - name: route_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_route')
+              field: route_id
+      - name: trip_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Planned', 'In Progress', 'Completed', 'Cancelled']
+
+  - name: stg_gps_event
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+
+  - name: stg_fuel_transaction
+    columns:
+      - name: fuel_transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+
+  - name: stg_maintenance
+    columns:
+      - name: maintenance_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+
+  - name: stg_incident
+    columns:
+      - name: incident_id
+        tests:
+          - not_null
+          - unique
+      - name: vehicle_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vehicle')
+              field: vehicle_id
+      - name: severity
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Low', 'Medium', 'High', 'Critical']
