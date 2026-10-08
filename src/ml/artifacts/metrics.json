@@ -1,0 +1,77 @@
+{
+  "training_timestamp": "2026-10-09T00:02:07.079172",
+  "framework": "scikit-learn 1.8.0",
+  "trip_duration_model": {
+    "mae_minutes": 26.57,
+    "rmse_minutes": 37.06,
+    "r2_score": 0.9653,
+    "train_samples": 632,
+    "test_samples": 159,
+    "numeric_features": [
+      "distance_km",
+      "planned_distance_km",
+      "cargo_weight_tons",
+      "capacity_tons",
+      "payload_utilization",
+      "experience_years",
+      "departure_hour",
+      "day_of_week",
+      "is_weekend"
+    ],
+    "categorical_features": [
+      "origin",
+      "destination",
+      "route_type",
+      "vehicle_type",
+      "fuel_type"
+    ]
+  },
+  "maintenance_risk_model": {
+    "accuracy": 0.96,
+    "f1_score": 0.9774,
+    "roc_auc": 0.9923,
+    "train_samples": 225,
+    "test_samples": 75,
+    "top_feature_importances": {
+      "total_downtime_hours": 0.2738,
+      "vehicle_age_years": 0.1275,
+      "incident_count": 0.1261,
+      "maintenance_operations": 0.0895,
+      "fuel_liters_per_100km": 0.0824,
+      "total_distance_km": 0.0607,
+      "completed_trips": 0.0581,
+      "capacity_tons": 0.0514,
+      "fuel_type_Hybrid": 0.029,
+      "manufacturer_Scania": 0.017
+    },
+    "numeric_features": [
+      "vehicle_age_years",
+      "total_distance_km",
+      "completed_trips",
+      "maintenance_operations",
+      "total_downtime_hours",
+      "incident_count",
+      "fuel_liters_per_100km",
+      "capacity_tons"
+    ],
+    "categorical_features": [
+      "vehicle_type",
+      "manufacturer",
+      "fuel_type"
+    ]
+  },
+  "fuel_optimization_model": {
+    "mae_liters": 5.38,
+    "r2_score": 0.9929,
+    "numeric_features": [
+      "distance_km",
+      "cargo_weight_tons",
+      "capacity_tons",
+      "payload_utilization"
+    ],
+    "categorical_features": [
+      "vehicle_type",
+      "fuel_type"
+    ]
+  }
+}

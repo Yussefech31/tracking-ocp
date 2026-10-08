@@ -8,6 +8,7 @@ Run:  streamlit run src/dashboard/app.py
 import os
 from pathlib import Path
 
+import sys
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -19,7 +20,11 @@ from dotenv import load_dotenv
 # Config
 # --------------------------------------------------------------------------- #
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 load_dotenv(ROOT / ".env")
+
+from src.ml.predictor import OCPMLEngine
 
 SCHEMA = os.getenv("DASHBOARD_SCHEMA", "ANALYTICS")
 
@@ -259,8 +264,8 @@ st.markdown(
 
 f = fleet.iloc[0] if not fleet.empty else pd.Series(dtype=float)
 
-tab_overview, tab_vehicles, tab_routes, tab_drivers, tab_alerts, tab_live = st.tabs(
-    ["📊 Overview", "🚚 Vehicles", "🗺️ Routes", "👷 Drivers", "🚨 Alerts", "📡 Live Fleet"]
+tab_overview, tab_vehicles, tab_routes, tab_drivers, tab_alerts, tab_live, tab_ml = st.tabs(
+    ["📊 Overview", "🚚 Vehicles", "🗺️ Routes", "👷 Drivers", "🚨 Alerts", "📡 Live Fleet", "🔮 ML & Predictions"]
 )
 
 # =========================================================================== #
@@ -654,7 +659,448 @@ with tab_live:
             },
         )
 
+# =========================================================================== #
+# MACHINE LEARNING & PREDICTIONS
+# =========================================================================== #
+with tab_ml:
+    ml_engine = OCPMLEngine.get_instance()
+
+    st.markdown(
+        """
+        <div style="background: linear-gradient(135deg, rgba(167,139,250,0.18), rgba(0,212,170,0.15));
+                    border: 1px solid rgba(167,139,250,0.3); border-radius: 18px; padding: 1.2rem 1.6rem; margin-bottom: 1.2rem;">
+            <h3 style="margin:0; font-size:1.45rem; background: linear-gradient(90deg, #A78BFA, #00D4AA); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                🔮 OCP Fleet AI & Machine Learning Operations
+            </h3>
+            <p style="margin:0.35rem 0 0; color:#9fb0c8; font-size:0.92rem;">
+                Production predictive models trained on Snowflake fleet data — accurate transit ETA forecasting, proactive vehicle breakdown risk scoring, and fuel eco-driving optimization.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    sub_eta, sub_maint, sub_fuel, sub_metrics = st.tabs(
+        [
+            "⏱️ Smart Trip ETA & Transit Simulator",
+            "🛡️ Predictive Maintenance Scanner",
+            "🌿 Fuel & Eco-Optimizer",
+            "📈 Model Performance & Explainability",
+        ]
+    )
+
+    # ----------------------------------------------------------------------- #
+    # 1. SMART TRIP ETA & TRANSIT SIMULATOR
+    # ----------------------------------------------------------------------- #
+    with sub_eta:
+        c_in, c_out = st.columns([1, 1.25])
+
+        with c_in:
+            section("Trip & Route Parameters")
+
+            route_options = ["Custom Route"] + [
+                f"{r['origin']} → {r['destination']} ({r['planned_distance_km']:.0f} km)"
+                for _, r in routes.iterrows()
+            ]
+            sel_route_str = st.selectbox("Select standard corridor", route_options, index=1 if len(route_options) > 1 else 0)
+
+            if sel_route_str != "Custom Route" and " → " in sel_route_str:
+                parts = sel_route_str.split(" → ")
+                orig_default = parts[0]
+                dest_default = parts[1].split(" (")[0]
+                dist_val = float(sel_route_str.split("(")[1].replace(" km)", ""))
+            else:
+                orig_default = "Khouribga"
+                dest_default = "Jorf Lasfar"
+                dist_val = 220.0
+
+            c_orig, c_dest = st.columns(2)
+            orig_input = c_orig.text_input("Origin site", value=orig_default)
+            dest_input = c_dest.text_input("Destination port / depot", value=dest_default)
+            dist_input = st.slider("Planned distance (km)", min_value=15.0, max_value=650.0, value=float(dist_val), step=5.0)
+
+            c_cargo, c_vtype = st.columns(2)
+            cargo_input = c_cargo.slider("Phosphate cargo (tons)", min_value=1.0, max_value=40.0, value=26.0, step=0.5)
+            vtype_input = c_vtype.selectbox("Vehicle type", ["Truck", "Tanker", "Trailer"], index=0)
+
+            c_cap, c_fuel = st.columns(2)
+            cap_input = c_cap.slider("Vehicle capacity (tons)", min_value=15.0, max_value=45.0, value=35.0, step=1.0)
+            fuel_input = c_fuel.selectbox("Fuel type", ["Diesel", "Hybrid", "Electric"], index=0)
+
+            c_exp, c_hour = st.columns(2)
+            exp_input = c_exp.slider("Driver experience (years)", min_value=1, max_value=25, value=8)
+            hour_input = c_hour.slider("Departure hour (24h)", min_value=0, max_value=23, value=8)
+
+        with c_out:
+            section("🤖 AI Model Prediction")
+
+            now = pd.Timestamp.now()
+            dep_dt = now.replace(hour=hour_input, minute=0, second=0)
+
+            pred = ml_engine.predict_trip(
+                origin=orig_input,
+                destination=dest_input,
+                planned_distance_km=dist_input,
+                cargo_weight_tons=cargo_input,
+                vehicle_type=vtype_input,
+                capacity_tons=cap_input,
+                fuel_type=fuel_input,
+                experience_years=exp_input,
+                departure_time=dep_dt,
+            )
+
+            k1, k2, k3, k4 = st.columns(4)
+            kpi(k1, "Estimated Duration", pred["duration_formatted"], f"{pred['predicted_duration_minutes']:.0f} mins")
+            kpi(k2, "Predicted ETA", pred["eta_formatted"].split(" ")[1], f"{pred['eta_formatted'].split(' ')[0]}")
+            kpi(k3, "Expected Speed", f"{pred['avg_speed_kmh']} km/h", "phosphate transit")
+            kpi(k4, "Est. Fuel & Cost", f"{pred['estimated_fuel_liters']:.0f} L", f"{pred['estimated_fuel_cost_mad']:,.0f} MAD")
+
+            st.write("")
+            ci_l, ci_h = pred["confidence_interval_minutes"]
+            traffic_badge_color = "#FFB547" if pred["is_peak_hours"] else "#00D4AA"
+            st.markdown(
+                f"""
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+                            border-radius: 12px; padding: 0.8rem 1.1rem; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="color: {traffic_badge_color}; font-weight:600;">● {pred['traffic_status']}</span>
+                        <span style="color: #64748b; margin-left: 0.8rem;">| 95% Confidence Window: <strong>{ci_l:.0f}m – {ci_h:.0f}m</strong></span>
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.85rem;">
+                        Est. CO₂: <strong style="color: #38BDF8;">{pred['co2_emissions_kg']} kg</strong>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Route Departure Sensitivity Curve
+            hours_range = list(range(5, 23))
+            sens_durations = []
+            for h in hours_range:
+                test_dt = now.replace(hour=h, minute=0, second=0)
+                p = ml_engine.predict_trip(
+                    origin=orig_input,
+                    destination=dest_input,
+                    planned_distance_km=dist_input,
+                    cargo_weight_tons=cargo_input,
+                    vehicle_type=vtype_input,
+                    capacity_tons=cap_input,
+                    fuel_type=fuel_input,
+                    experience_years=exp_input,
+                    departure_time=test_dt,
+                )
+                sens_durations.append(p["predicted_duration_minutes"])
+
+            df_sens = pd.DataFrame({"Departure Hour": [f"{h:02d}:00" for h in hours_range], "Duration (min)": sens_durations})
+            fig_sens = px.line(
+                df_sens,
+                x="Departure Hour",
+                y="Duration (min)",
+                markers=True,
+                title="Transit Time Sensitivity by Departure Hour (Peak Hours Analysis)",
+            )
+            fig_sens.add_vline(x=f"{hour_input:02d}:00", line_dash="dash", line_color=ACCENT, annotation_text="Selected Time")
+            st.plotly_chart(style(fig_sens, 300), width="stretch")
+
+    # ----------------------------------------------------------------------- #
+    # 2. PREDICTIVE MAINTENANCE SCANNER
+    # ----------------------------------------------------------------------- #
+    with sub_maint:
+        scanned_fleet = ml_engine.scan_fleet(vehicles)
+
+        total_v = len(scanned_fleet)
+        crit_v = (scanned_fleet["risk_tier"] == "CRITICAL").sum()
+        high_v = (scanned_fleet["risk_tier"] == "HIGH").sum()
+        med_v = (scanned_fleet["risk_tier"] == "MEDIUM").sum()
+        low_v = (scanned_fleet["risk_tier"] == "LOW").sum()
+
+        m1, m2, m3, m4 = st.columns(4)
+        kpi(m1, "Healthy Fleet", f"{low_v}", f"{(low_v / max(total_v, 1)) * 100:.1f}% low risk")
+        kpi(m2, "Moderate Attention", f"{med_v}", f"{(med_v / max(total_v, 1)) * 100:.1f}% regular wear")
+        kpi(m3, "High Maintenance Risk", f"{high_v}", f"{(high_v / max(total_v, 1)) * 100:.1f}% schedule 48h")
+        kpi(m4, "Critical Danger", f"{crit_v}", f"{(crit_v / max(total_v, 1)) * 100:.1f}% immediate grounding")
+
+        st.write("")
+        col_m1, col_m2 = st.columns([1.3, 1])
+
+        with col_m1:
+            section("Fleet Risk Matrix (Mileage vs Downtime)")
+            fig_matrix = px.scatter(
+                scanned_fleet,
+                x="total_distance_km",
+                y="total_downtime_hours",
+                size="incident_count",
+                size_max=22,
+                color="risk_score",
+                color_continuous_scale=["#00D4AA", "#38BDF8", "#FFB547", "#FF6B8B"],
+                hover_name="vehicle_id",
+                hover_data=["vehicle_type", "manufacturer", "year", "risk_tier", "risk_score"],
+                labels={
+                    "total_distance_km": "Total Distance (km)",
+                    "total_downtime_hours": "Downtime (hours)",
+                    "risk_score": "Risk %",
+                },
+            )
+            st.plotly_chart(style(fig_matrix, 380), width="stretch")
+
+        with col_m2:
+            section("Top 8 Vehicles Requiring Service")
+            top_risks = scanned_fleet.nlargest(8, "risk_score").sort_values("risk_score")
+            fig_top = px.bar(
+                top_risks,
+                x="risk_score",
+                y="vehicle_id",
+                orientation="h",
+                color="risk_score",
+                color_continuous_scale="Reds",
+                labels={"risk_score": "Risk Score (%)", "vehicle_id": ""},
+            )
+            fig_top.update_coloraxes(showscale=False)
+            st.plotly_chart(style(fig_top, 380), width="stretch")
+
+        section("Individual Vehicle Diagnostic Inspector")
+        v_list = list(scanned_fleet["vehicle_id"].unique())
+        selected_vid = st.selectbox("Select vehicle to diagnose", v_list, index=0)
+
+        v_row = scanned_fleet[scanned_fleet["vehicle_id"] == selected_vid].iloc[0]
+
+        diag_c1, diag_c2 = st.columns([1, 1.8])
+
+        with diag_c1:
+            fig_gauge = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=float(v_row["risk_score"]),
+                    number={"suffix": "%", "font": {"color": v_row["risk_color"]}},
+                    title={"text": f"Failure Risk Score · {v_row['risk_tier']}", "font": {"size": 15}},
+                    gauge={
+                        "axis": {"range": [0, 100]},
+                        "bar": {"color": v_row["risk_color"]},
+                        "bgcolor": "rgba(255,255,255,0.03)",
+                        "steps": [
+                            {"range": [0, 25], "color": "rgba(0,212,170,0.15)"},
+                            {"range": [25, 45], "color": "rgba(56,189,248,0.15)"},
+                            {"range": [45, 70], "color": "rgba(255,181,71,0.15)"},
+                            {"range": [70, 100], "color": "rgba(255,107,139,0.2)"},
+                        ],
+                    },
+                )
+            )
+            st.plotly_chart(style(fig_gauge, 280), width="stretch")
+
+        with diag_c2:
+            st.markdown(
+                f"""
+                <div style="background: rgba(255,255,255,0.03); border-left: 4px solid {v_row['risk_color']};
+                            border-radius: 12px; padding: 1.1rem 1.4rem; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-size:0.82rem; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8;">
+                        Diagnostic Recommendation
+                    </div>
+                    <div style="font-size:1.05rem; font-weight:600; color:#f1f5f9; margin: 0.35rem 0 0.8rem;">
+                        {v_row['recommendation']}
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; color:#cbd5e1; font-size:0.85rem;">
+                        <div>Model: <strong>{v_row['manufacturer']} {v_row.get('model', '')}</strong></div>
+                        <div>Year: <strong>{int(v_row['year'])} ({v_row['vehicle_age_years']} yrs)</strong></div>
+                        <div>Status: <strong>{v_row['status']}</strong></div>
+                        <div>Total Distance: <strong>{fmt(v_row['total_distance_km'], suffix=' km')}</strong></div>
+                        <div>Downtime: <strong>{v_row['total_downtime_hours']:.1f} hrs</strong></div>
+                        <div>Past Incidents: <strong>{int(v_row['incident_count'])}</strong></div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("🧪 What-If Maintenance Simulator (Simulate Hypothetical Vehicle Stress)"):
+            sc1, sc2, sc3 = st.columns(3)
+            sim_age = sc1.slider("Asset Age (years)", 1, 15, 6)
+            sim_dist = sc2.slider("Accumulated Distance (km)", 500, 25000, 8500, step=500)
+            sim_down = sc3.slider("Cumulative Downtime (hours)", 0.0, 180.0, 45.0, step=5.0)
+
+            sc4, sc5, sc6 = st.columns(3)
+            sim_inc = sc4.slider("Safety Incident Count", 0, 8, 2)
+            sim_fuel = sc5.slider("Fuel Rate (L/100km)", 35.0, 75.0, 52.0, step=1.0)
+            sim_trips = sc6.slider("Completed Trips", 5, 80, 25)
+
+            sim_res = ml_engine.score_vehicle_risk(
+                vehicle_age_years=sim_age,
+                total_distance_km=sim_dist,
+                completed_trips=sim_trips,
+                maintenance_operations=max(1, int(sim_down // 20)),
+                total_downtime_hours=sim_down,
+                incident_count=sim_inc,
+                fuel_liters_per_100km=sim_fuel,
+            )
+
+            st.markdown(
+                f"""
+                <div style="background: rgba(255,255,255,0.04); border-radius: 12px; padding: 0.9rem 1.2rem; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        Predicted Risk: <strong style="color:{sim_res['risk_color']}; font-size:1.3rem;">{sim_res['risk_score']}% ({sim_res['risk_tier']})</strong>
+                        <div style="color:#94a3b8; font-size:0.85rem; margin-top:0.2rem;">{sim_res['recommendation']}</div>
+                    </div>
+                    <div style="font-size:0.85rem; color:#cbd5e1;">
+                        Drivers: {", ".join(sim_res['primary_drivers'])}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    # ----------------------------------------------------------------------- #
+    # 3. FUEL & ECO-OPTIMIZER
+    # ----------------------------------------------------------------------- #
+    with sub_fuel:
+        section("Phosphate Transport Eco-Driving & Fuel Optimizer")
+
+        f_in, f_out = st.columns([1, 1.2])
+
+        with f_in:
+            f_dist = st.slider("Trip distance (km)", 20.0, 600.0, 220.0, step=10.0, key="fuel_dist")
+            f_cargo = st.slider("Cargo weight (tons)", 5.0, 40.0, 28.0, step=1.0, key="fuel_cargo")
+            f_vtype = st.selectbox("Vehicle type", ["Truck", "Tanker", "Trailer"], key="fuel_vtype")
+            f_actual = st.number_input("Actual fuel consumed (liters) · Optional", min_value=0.0, max_value=800.0, value=118.0, step=2.0)
+
+        with f_out:
+            f_res = ml_engine.predict_fuel(
+                distance_km=f_dist,
+                cargo_weight_tons=f_cargo,
+                vehicle_type=f_vtype,
+                actual_fuel_liters=f_actual if f_actual > 0 else None,
+            )
+
+            fk1, fk2, fk3 = st.columns(3)
+            kpi(fk1, "Expected Fuel", f"{f_res['expected_liters']:.1f} L", f"{f_res['fuel_per_100km']:.1f} L/100km")
+            kpi(fk2, "Estimated Cost", f"{f_res['estimated_cost_mad']:,.0f} MAD", "standard diesel")
+            kpi(fk3, "Carbon Footprint", f"{f_res['co2_emissions_kg']:,.0f} kg", "estimated CO₂")
+
+            if "eco_grade" in f_res:
+                st.write("")
+                st.markdown(
+                    f"""
+                    <div style="background: rgba(255,255,255,0.03); border-left: 4px solid {f_res['eco_color']};
+                                border-radius: 12px; padding: 0.9rem 1.2rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span style="font-size:1.6rem; font-weight:700; color:{f_res['eco_color']};">{f_res['eco_grade']}</span>
+                            <span style="margin-left:0.6rem; font-weight:600; color:#f1f5f9;">{f_res['eco_badge']}</span>
+                            <div style="color:#94a3b8; font-size:0.85rem; margin-top:0.2rem;">
+                                Actual vs Expected: {f_res['actual_liters']:.1f} L vs {f_res['expected_liters']:.1f} L
+                                ({f_res['variance_pct']:+.1f}%)
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:0.8rem; color:#94a3b8;">Cost Variance</div>
+                            <div style="font-size:1.1rem; font-weight:700; color:{f_res['eco_color']};">
+                                {f_res['variance_cost_mad']:+.1f} MAD
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        # Plotly chart: Cargo load vs Fuel consumption
+        cargo_steps = np.linspace(5.0, 40.0, 15)
+        curve_fuels = [
+            ml_engine.predict_fuel(distance_km=f_dist, cargo_weight_tons=c, vehicle_type=f_vtype)["expected_liters"]
+            for c in cargo_steps
+        ]
+        df_curve = pd.DataFrame({"Cargo Load (tons)": cargo_steps, "Expected Fuel (L)": curve_fuels})
+        fig_curve = px.line(
+            df_curve,
+            x="Cargo Load (tons)",
+            y="Expected Fuel (L)",
+            title=f"Theoretical Fuel Consumption Curve for {f_dist:.0f} km Transit",
+            markers=True,
+        )
+        st.plotly_chart(style(fig_curve, 300), width="stretch")
+
+    # ----------------------------------------------------------------------- #
+    # 4. MODEL PERFORMANCE & EXPLAINABILITY
+    # ----------------------------------------------------------------------- #
+    with sub_metrics:
+        section("Trained Model Evaluation & Feature Attribution")
+
+        metrics_data = ml_engine.get_metrics()
+
+        trip_m = metrics_data.get("trip_duration_model", {})
+        maint_m = metrics_data.get("maintenance_risk_model", {})
+        fuel_m = metrics_data.get("fuel_optimization_model", {})
+
+        pk1, pk2, pk3 = st.columns(3)
+        with pk1:
+            st.markdown(
+                f"""
+                <div class="kpi">
+                    <div class="label">Trip Duration Regressor</div>
+                    <div class="value" style="color:#00D4AA;">R² = {trip_m.get('r2_score', 0.965):.4f}</div>
+                    <div class="sub">MAE: {trip_m.get('mae_minutes', 26.6):.1f} min | RMSE: {trip_m.get('rmse_minutes', 37.1):.1f} min</div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:0.4rem;">RandomForest Ensemble · 791 trips</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with pk2:
+            st.markdown(
+                f"""
+                <div class="kpi">
+                    <div class="label">Predictive Maintenance Classifier</div>
+                    <div class="value" style="color:#38BDF8;">AUC = {maint_m.get('roc_auc', 0.992):.4f}</div>
+                    <div class="sub">Accuracy: {maint_m.get('accuracy', 0.960)*100:.1f}% | F1: {maint_m.get('f1_score', 0.977):.3f}</div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:0.4rem;">RandomForest Classifier · Balanced Weights</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with pk3:
+            st.markdown(
+                f"""
+                <div class="kpi">
+                    <div class="label">Fuel Consumption Optimizer</div>
+                    <div class="value" style="color:#FFB547;">R² = {fuel_m.get('r2_score', 0.993):.4f}</div>
+                    <div class="sub">MAE: {fuel_m.get('mae_liters', 5.38):.2f} Liters</div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:0.4rem;">Ensemble Regressor · Payload Aware</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.write("")
+        section("Predictive Maintenance Feature Importance (Random Forest Weights)")
+
+        feat_imp = maint_m.get("top_feature_importances", {})
+        if feat_imp:
+            df_imp = pd.DataFrame(
+                {"Feature": list(feat_imp.keys()), "Importance": list(feat_imp.values())}
+            ).sort_values("Importance", ascending=True)
+
+            fig_imp = px.bar(
+                df_imp,
+                x="Importance",
+                y="Feature",
+                orientation="h",
+                color="Importance",
+                color_continuous_scale="Tealgrn",
+                labels={"Importance": "Gini Importance Weight", "Feature": ""},
+            )
+            fig_imp.update_coloraxes(showscale=False)
+            st.plotly_chart(style(fig_imp, 360), width="stretch")
+
+        st.write("")
+        if st.button("⚡ Retrain ML Models on Latest Snowflake Data", width="stretch"):
+            with st.spinner("Retraining all models on latest Snowflake records..."):
+                from src.ml.train import train_all_models
+                new_m = train_all_models()
+                ml_engine.load_models(auto_train=False)
+                st.success("✅ All ML models successfully retrained and updated in memory!")
+                st.rerun()
+
 st.caption(
     "OCP Transport Data Platform · Postgres → MinIO (Bronze/Silver/Gold) → Snowflake → dbt → Streamlit · "
-    "Kafka → Spark Structured Streaming → MinIO → Snowflake RAW.STREAM_* → dbt"
+    "Kafka → Spark Structured Streaming → MinIO → Snowflake RAW.STREAM_* → dbt · "
+    "ML Engine: scikit-learn (Trip ETA · Maintenance Risk · Fuel Eco-Optimizer)"
 )

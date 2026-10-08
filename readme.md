@@ -60,8 +60,9 @@ flowchart TD
 | **Apache Spark (PySpark 3.5)** | Distributed batch processing, data quality, and Structured Streaming for real-time alerts |
 | **Snowflake** | Cloud Data Warehouse hosting the raw staging and analytical reporting marts |
 | **dbt (Data Build Tool)** | Data modeling, transformations, testing, and schema documentation |
+| **scikit-learn 1.8** | Machine learning engine for trip ETA prediction, predictive maintenance, and fuel optimization |
 | **Apache Airflow 3.x** | Workflow orchestration, task dependency management, and pipeline monitoring |
-| **Streamlit** | Interactive Python web dashboard visualizing Gold KPIs directly from Snowflake |
+| **Streamlit** | Interactive Python web dashboard visualizing Gold KPIs and live ML predictions |
 | **Docker & Docker Compose** | Multi-container environment for Postgres, MinIO, and Airflow services |
 | **Python & Faker** | Data generation and ETL scripts |
 
@@ -116,6 +117,28 @@ The dbt project (`dbt/ocp_transport/`) models data within Snowflake across two l
 - `driver_kpis.sql`: Driver performance, completion rates, incident records.
 - `fleet_kpis.sql`: Executive-level operational metrics and fleet KPIs.
 - `realtime_fleet_kpis.sql`: Streaming aggregation of real-time telemetry for active vehicle states, speeds, and anomaly rates.
+
+---
+
+## 🔮 Machine Learning & Predictive Analytics
+
+The platform integrates a production-grade machine learning module (`src/ml/`) trained directly on historical fleet telemetry and operational data extracted from Snowflake:
+
+### 1. ⏱️ Smart Trip Duration & ETA Prediction
+- **Algorithm**: Multi-feature `RandomForestRegressor` ensemble.
+- **Features**: Route distance, cargo tonnage, vehicle payload capacity and utilization, driver experience, departure hour, day of week, route type, vehicle type.
+- **Performance**: **$R^2 = 0.9653$**, **$MAE = 26.6\text{ min}$**, **$RMSE = 37.1\text{ min}$**.
+- **Interactive Capability**: Real-time corridor simulator in Streamlit computing exact transit times, estimated arrival times (ETA), rush-hour delay buffers, and 95% confidence windows.
+
+### 2. 🛡️ Fleet Predictive Maintenance & Breakdown Risk Scoring
+- **Algorithm**: `RandomForestClassifier` with balanced class weighting.
+- **Features**: Vehicle age, accumulated distance (km), total maintenance operations, downtime hours, incident history, fuel efficiency rate.
+- **Performance**: **$\text{ROC-AUC} = 0.9923$**, **$\text{Accuracy} = 96.0\%$**, **$F1 = 0.977$**.
+- **Interactive Capability**: Fleet-wide health triage scanner categorizing vehicles into `LOW`, `MEDIUM`, `HIGH`, and `CRITICAL` risk tiers, coupled with single-vehicle diagnostic drill-downs and prescriptive workshop actions.
+
+### 3. 🌿 Fuel Consumption & Eco-Driving Optimizer
+- **Algorithm**: Payload-aware ensemble regressor ($R^2 = 0.9929$, $MAE = 5.38\text{ L}$).
+- **Capability**: Compares theoretical expected fuel burn vs. actual fuel consumption to assign Eco-Driving grades (`A+` to `D`), quantify carbon footprints ($\text{kg CO}_2$), and flag anomalous consumption from engine idling or fuel leakage.
 
 ---
 
@@ -185,11 +208,17 @@ vehicle route    driver   fleet
 │
 └── src/                              # Core Python & Spark code
     ├── dashboard/                    # Streamlit Dashboard application
-    │   └── app.py                    # Main dashboard script
+    │   └── app.py                    # Main dashboard script (KPIs + Real-time + ML tabs)
     ├── generate_data.py              # Synthetic data generator for PostgreSQL
     ├── load_postgres_to_snowflake.py # Direct Postgres-to-Snowflake sync
     ├── snowflake_test.py             # Snowflake connectivity test
-    └── pyspark/                      # Spark ETL & Medallion scripts
+    ├── ml/                           # Machine Learning & AI Operations
+    │   ├── data_loader.py            # Feature extraction from Snowflake / local fallback
+    │   ├── train.py                  # End-to-end model training pipeline
+    │   ├── predictor.py              # OCPMLEngine inference service
+    │   ├── verify_ml.py              # Automated test & validation script
+    │   └── artifacts/                # Serialized model pipelines & metrics.json
+    ├── pyspark/                      # Spark ETL & Medallion scripts
         ├── bronze_ingestion.py       # Postgres -> MinIO Bronze
         ├── silver_transformations.py # Bronze -> Silver & Quarantine
         ├── gold_vehicle_kpis.py      # Vehicle KPIs Gold mart
@@ -240,8 +269,16 @@ python src/generate_data.py
 ### 5. Trigger the Airflow Pipeline
 Access the Airflow UI at `http://localhost:8083`, unpause the DAG `ocp_transport_batch_pipeline`, and trigger a run to execute the end-to-end ingestion, Spark medallion transformations, and dbt models.
 
-### 6. Run the Streamlit Dashboard
-Once the pipeline finishes and data lands in Snowflake, start the interactive dashboard to visualize the Gold KPIs:
+### 6. Train Machine Learning Models
+Train the trip ETA regressor, predictive maintenance classifier, and fuel optimizer:
+```bash
+python -m src.ml.train
+# Run automated validation
+python src/ml/verify_ml.py
+```
+
+### 7. Run the Streamlit Dashboard
+Start the interactive dashboard to visualize the Gold KPIs, real-time alerts, and live ML simulators:
 ```bash
 python -m streamlit run src/dashboard/app.py
 ```
