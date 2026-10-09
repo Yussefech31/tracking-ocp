@@ -775,7 +775,7 @@ with tab_ml:
             )
 
             # Route Departure Sensitivity Curve
-            hours_range = list(range(5, 23))
+            hours_range = list(range(0, 24))
             sens_durations = []
             for h in hours_range:
                 test_dt = now.replace(hour=h, minute=0, second=0)
@@ -792,15 +792,26 @@ with tab_ml:
                 )
                 sens_durations.append(p["predicted_duration_minutes"])
 
-            df_sens = pd.DataFrame({"Departure Hour": [f"{h:02d}:00" for h in hours_range], "Duration (min)": sens_durations})
+            df_sens = pd.DataFrame({"Hour": hours_range, "Duration (min)": sens_durations})
             fig_sens = px.line(
                 df_sens,
-                x="Departure Hour",
+                x="Hour",
                 y="Duration (min)",
                 markers=True,
-                title="Transit Time Sensitivity by Departure Hour (Peak Hours Analysis)",
+                title="Transit Time Sensitivity by Departure Hour (24h Traffic Curve)",
             )
-            fig_sens.add_vline(x=f"{hour_input:02d}:00", line_dash="dash", line_color=ACCENT, annotation_text="Selected Time")
+            fig_sens.update_xaxes(
+                tickmode="linear",
+                tick0=0,
+                dtick=2,
+                ticksuffix=":00",
+            )
+            fig_sens.add_vline(
+                x=int(hour_input),
+                line_dash="dash",
+                line_color=ACCENT,
+                annotation_text=f"Selected ({hour_input:02d}:00)",
+            )
             st.plotly_chart(style(fig_sens, 300), width="stretch")
 
     # ----------------------------------------------------------------------- #
